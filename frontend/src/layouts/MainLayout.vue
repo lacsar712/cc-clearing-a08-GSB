@@ -5,6 +5,7 @@
       <el-menu :default-active="route.path" router>
         <el-menu-item index="/">首页</el-menu-item>
         <el-menu-item index="/members">会员</el-menu-item>
+        <el-menu-item index="/credit-limits">会员额度</el-menu-item>
         <el-menu-item index="/obligations">义务</el-menu-item>
         <el-menu-item index="/netting">轧差执行</el-menu-item>
       </el-menu>

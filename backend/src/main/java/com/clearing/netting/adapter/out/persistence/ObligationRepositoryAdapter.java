@@ -77,4 +77,10 @@ public class ObligationRepositoryAdapter implements ObligationRepositoryPort {
                 .map(PersistenceMapper::toDomain)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public java.math.BigDecimal sumOpenAmountByPayerAndCurrency(String payerMemberId, String currency) {
+        return repository.sumOpenAmountByPayerAndCurrency(
+                payerMemberId, currency.toUpperCase(), ObligationStatus.OPEN);
+    }
 }

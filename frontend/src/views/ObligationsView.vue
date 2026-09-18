@@ -41,7 +41,29 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-button type="primary" :disabled="!auth.isOperator" :loading="saving" @click="create">提交义务</el-button>
+        <el-alert
+          v-if="limitExceeded"
+          type="error"
+          :closable="false"
+          show-icon
+          style="margin:0 0 12px"
+          title="额度超限，无法新建义务"
+          :description="limitMsg"
+        />
+        <el-alert
+          v-else-if="limitInfo"
+          type="info"
+          :closable="false"
+          show-icon
+          style="margin:0 0 12px"
+          :title="limitInfo"
+        />
+        <el-button
+          type="primary"
+          :disabled="!auth.isOperator || limitExceeded"
+          :loading="saving"
+          @click="create"
+        >提交义务</el-button>
       </el-form>
     </div>
 
@@ -83,7 +105,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import api from '../api/client'
 import { useAuthStore } from '../stores/auth'
@@ -93,6 +115,7 @@ const members = ref([])
 const rows = ref([])
 const loading = ref(false)
 const saving = ref(false)
+const usage = ref(null)
 const today = new Date().toISOString().slice(0, 10)
 
 const form = reactive({
@@ -112,6 +135,49 @@ const filters = reactive({
 
 const activeMembers = computed(() => members.value.filter((m) => m.status === 'ACTIVE'))
 const memberMap = computed(() => Object.fromEntries(members.value.map((m) => [m.memberId, m.name])))
+
+const limitExceeded = computed(() => {
+  if (!usage.value || usage.value.limitAmount === null || usage.value.limitAmount === undefined) return false
+  const amount = Number(form.amount) || 0
+  return Number(usage.value.usedAmount) + amount > Number(usage.value.limitAmount)
+})
+
+const limitMsg = computed(() => {
+  if (!usage.value) return ''
+  const u = usage.value
+  return `付款方 ${u.currency} 额度上限 ${fmt(u.limitAmount)}，OPEN 义务已占用 ${fmt(u.usedAmount)}，本次申请 ${fmt(form.amount)}，合计超出 ${fmt(Number(u.usedAmount) + (Number(form.amount) || 0) - Number(u.limitAmount))}。请调低金额或前往「会员额度」页调整上限。`
+})
+
+const limitInfo = computed(() => {
+  if (!form.payerMemberId || !form.currency) return ''
+  if (!usage.value || usage.value.limitAmount === null || usage.value.limitAmount === undefined) {
+    return `${form.currency} 未配置额度，当前不限额`
+  }
+  return `付款方 ${usage.value.currency} 额度：上限 ${fmt(usage.value.limitAmount)} / 已用 ${fmt(usage.value.usedAmount)} / 提交后可用 ${fmt(Number(usage.value.availableAmount) - (Number(form.amount) || 0))}`
+})
+
+function fmt(v) {
+  if (v === null || v === undefined || Number.isNaN(Number(v))) return '-'
+  return Number(v).toLocaleString('en-US', { maximumFractionDigits: 8 })
+}
+
+async function loadUsage() {
+  usage.value = null
+  if (!form.payerMemberId || !form.currency) return
+  try {
+    const { data } = await api.get('/credit-limits/usage', {
+      params: { memberId: form.payerMemberId, currency: form.currency }
+    })
+    usage.value = data
+  } catch {
+    // 静默：全局拦截器已提示错误
+  }
+}
+
+watch(
+  () => [form.payerMemberId, form.currency],
+  () => loadUsage()
+)
 
 function nameOf(id) {
   return memberMap.value[id] || id
@@ -137,11 +203,16 @@ async function load() {
 }
 
 async function create() {
+  if (limitExceeded.value) {
+    ElMessage.error('额度超限，已拦截本次新建义务')
+    return
+  }
   saving.value = true
   try {
     await api.post('/obligations', { ...form })
     ElMessage.success('义务已录入')
     await load()
+    await loadUsage()
   } finally {
     saving.value = false
   }

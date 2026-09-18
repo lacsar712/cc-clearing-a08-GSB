@@ -45,11 +45,13 @@ docker compose down
 1. 打开 http://localhost:3171 ，使用 `operator` / `op123456` 登录
 2. 首页查看 seed 灌入的待轧差义务摘要与最近批次
 3. 「会员」页确认演示会员为 ACTIVE；可新建或启停
-4. 「义务」页筛选 OPEN 义务，或新建一笔同币种义务
-5. 「轧差执行」选择 settleDate + currency（如 USD），执行轧差
-6. 确认净头寸表 ΣnetAmount = 0，批次状态 COMPLETED
-7. 进入批次详情，点击 Settle，义务变为 SETTLED
-8. 使用 `viewer` 登录，确认只能浏览、无法执行写操作
+4. 「会员额度」页按会员 + 币种设置额度上限（viewer 只读）；未配置额度视为不限额
+5. 「义务」页筛选 OPEN 义务，或新建一笔同币种义务
+6. **额度拦截验收**：在「会员额度」页把某会员 USD 上限调低到其 OPEN 义务已用金额以下 → 回到「义务」页，付款方选该会员、币种 USD，页面立即出现红色「额度超限，无法新建义务」提示，提交按钮禁用；绕过前端直接调接口同样返回 `400 CREDIT_LIMIT_EXCEEDED`
+7. 「轧差执行」选择 settleDate + currency（如 USD），执行轧差
+8. 确认净头寸表 ΣnetAmount = 0，批次状态 COMPLETED
+9. 进入批次详情，点击 Settle，义务变为 SETTLED
+10. 使用 `viewer` 登录，确认只能浏览、无法执行写操作（额度页输入框禁用、改额接口返回 403）
 
 健康检查：
 

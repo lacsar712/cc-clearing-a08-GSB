@@ -1,10 +1,12 @@
 package com.clearing.netting.adapter.out.persistence;
 
+import com.clearing.netting.adapter.out.persistence.entity.CreditLimitJpaEntity;
 import com.clearing.netting.adapter.out.persistence.entity.MemberJpaEntity;
 import com.clearing.netting.adapter.out.persistence.entity.NetPositionJpaEntity;
 import com.clearing.netting.adapter.out.persistence.entity.NettingRunJpaEntity;
 import com.clearing.netting.adapter.out.persistence.entity.ObligationJpaEntity;
 import com.clearing.netting.adapter.out.persistence.entity.UserJpaEntity;
+import com.clearing.netting.domain.model.CreditLimit;
 import com.clearing.netting.domain.model.Member;
 import com.clearing.netting.domain.model.NetPosition;
 import com.clearing.netting.domain.model.NettingRun;
@@ -25,6 +27,19 @@ final class PersistenceMapper {
         e.setMemberId(m.getMemberId());
         e.setName(m.getName());
         e.setStatus(m.getStatus());
+        return e;
+    }
+
+    static CreditLimit toDomain(CreditLimitJpaEntity e) {
+        return new CreditLimit(e.getLimitId(), e.getMemberId(), e.getCurrency(), e.getLimitAmount());
+    }
+
+    static CreditLimitJpaEntity toEntity(CreditLimit c) {
+        CreditLimitJpaEntity e = new CreditLimitJpaEntity();
+        e.setLimitId(c.getLimitId());
+        e.setMemberId(c.getMemberId());
+        e.setCurrency(c.getCurrency());
+        e.setLimitAmount(c.getLimitAmount());
         return e;
     }
 

@@ -55,5 +55,11 @@ curl -sf -X POST "${BACKEND_URL}/api/obligations" -H "$AUTH" -H "Content-Type: a
 curl -sf -X POST "${BACKEND_URL}/api/obligations" -H "$AUTH" -H "Content-Type: application/json" \
   -d "{\"payerMemberId\":\"${ID1}\",\"payeeMemberId\":\"${ID3}\",\"currency\":\"USD\",\"amount\":25000.00000000,\"tradeDate\":\"${TRADE_DATE}\",\"settleDate\":\"${SETTLE_DATE}\"}" >/dev/null
 
+echo "Seeding default USD credit limits (1,000,000 per member)..."
+for ID in "$ID1" "$ID2" "$ID3"; do
+  curl -sf -X PUT "${BACKEND_URL}/api/credit-limits" -H "$AUTH" -H "Content-Type: application/json" \
+    -d "{\"memberId\":\"${ID}\",\"currency\":\"USD\",\"limitAmount\":1000000.00000000}" >/dev/null
+done
+
 echo "Seed completed successfully"
 exit 0
