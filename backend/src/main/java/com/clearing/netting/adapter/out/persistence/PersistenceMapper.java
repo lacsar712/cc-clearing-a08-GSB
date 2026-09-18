@@ -1,5 +1,7 @@
 package com.clearing.netting.adapter.out.persistence;
 
+import com.clearing.netting.adapter.out.persistence.entity.MemberCreditLimitJpaEntity;
+import com.clearing.netting.adapter.out.persistence.entity.MemberCreditLimitId;
 import com.clearing.netting.adapter.out.persistence.entity.MemberJpaEntity;
 import com.clearing.netting.adapter.out.persistence.entity.NetPositionJpaEntity;
 import com.clearing.netting.adapter.out.persistence.entity.NettingRunJpaEntity;
@@ -11,6 +13,8 @@ import com.clearing.netting.domain.model.NettingRun;
 import com.clearing.netting.domain.model.TradeObligation;
 import com.clearing.netting.domain.model.UserAccount;
 
+import java.math.BigDecimal;
+
 final class PersistenceMapper {
 
     private PersistenceMapper() {
@@ -20,12 +24,24 @@ final class PersistenceMapper {
         return new Member(e.getMemberId(), e.getName(), e.getStatus());
     }
 
+    static Member toDomain(MemberJpaEntity e, java.util.List<MemberCreditLimitJpaEntity> limits) {
+        java.util.Map<String, BigDecimal> limitMap = new java.util.HashMap<>();
+        for (MemberCreditLimitJpaEntity l : limits) {
+            limitMap.put(l.getId().getCurrency(), l.getLimitAmount());
+        }
+        return new Member(e.getMemberId(), e.getName(), e.getStatus(), limitMap);
+    }
+
     static MemberJpaEntity toEntity(Member m) {
         MemberJpaEntity e = new MemberJpaEntity();
         e.setMemberId(m.getMemberId());
         e.setName(m.getName());
         e.setStatus(m.getStatus());
         return e;
+    }
+
+    static MemberCreditLimitJpaEntity toLimitEntity(String memberId, String currency, BigDecimal limit) {
+        return new MemberCreditLimitJpaEntity(new MemberCreditLimitId(memberId, currency), limit);
     }
 
     static TradeObligation toDomain(ObligationJpaEntity e) {

@@ -9,9 +9,12 @@ import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -76,5 +79,24 @@ public class ObligationRepositoryAdapter implements ObligationRepositoryPort {
         return repository.findByNettingRunId(runId).stream()
                 .map(PersistenceMapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public BigDecimal sumOpenByPayerAndCurrency(String payerMemberId, String currency) {
+        String ccy = currency == null || currency.isBlank() ? null : currency.trim().toUpperCase();
+        return repository.sumAmountByPayerAndCurrencyAndStatus(
+                payerMemberId, ccy, ObligationStatus.OPEN);
+    }
+
+    @Override
+    public Map<String, Map<String, BigDecimal>> sumOpenAmountsGroupedByPayerAndCurrency() {
+        Map<String, Map<String, BigDecimal>> result = new HashMap<>();
+        for (Object[] row : repository.sumAmountsGroupedByPayerAndCurrencyAndStatus(ObligationStatus.OPEN)) {
+            String payer = (String) row[0];
+            String currency = (String) row[1];
+            BigDecimal amount = (BigDecimal) row[2];
+            result.computeIfAbsent(payer, k -> new HashMap<>()).put(currency, amount);
+        }
+        return result;
     }
 }

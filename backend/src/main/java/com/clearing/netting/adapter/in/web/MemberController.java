@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -51,9 +53,13 @@ public class MemberController {
     public record StatusRequest(@NotNull MemberStatus status) {
     }
 
-    public record MemberResponse(String memberId, String name, MemberStatus status) {
+    public record MemberResponse(
+            String memberId,
+            String name,
+            MemberStatus status,
+            Map<String, BigDecimal> creditLimits) {
         static MemberResponse from(Member m) {
-            return new MemberResponse(m.getMemberId(), m.getName(), m.getStatus());
+            return new MemberResponse(m.getMemberId(), m.getName(), m.getStatus(), m.getCreditLimits());
         }
     }
 }

@@ -40,18 +40,39 @@ public class ObligationApplicationService {
             BigDecimal amount,
             LocalDate tradeDate,
             LocalDate settleDate) {
-        validateMember(payerMemberId);
+        Member payer = validateMember(payerMemberId);
         validateMember(payeeMemberId);
+        String ccy = currency == null ? null : currency.trim().toUpperCase();
+        checkCreditLimit(payer, ccy, amount);
         TradeObligation obligation = TradeObligation.open(
                 payerMemberId, payeeMemberId, currency, amount, tradeDate, settleDate);
         return obligationRepository.save(obligation);
     }
 
-    private void validateMember(String memberId) {
+    private Member validateMember(String memberId) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new DomainException("MEMBER_NOT_FOUND", "member not found: " + memberId));
         if (member.getStatus() == MemberStatus.SUSPENDED) {
             throw new DomainException("SUSPENDED_MEMBER", "cannot create obligation for suspended member: " + memberId);
+        }
+        return member;
+    }
+
+    private void checkCreditLimit(Member payer, String currency, BigDecimal amount) {
+        BigDecimal limit = payer.getCreditLimit(currency);
+        if (limit == null) {
+            return;
+        }
+        BigDecimal used = obligationRepository.sumOpenByPayerAndCurrency(payer.getMemberId(), currency);
+        BigDecimal projected = used.add(amount);
+        if (projected.compareTo(limit) > 0) {
+            throw new DomainException(
+                    "CREDIT_LIMIT_EXCEEDED",
+                    String.format(
+                            "会员[%s] %s 额度上限 %s,当前已用 %s,本笔 %s,提交后合计 %s 将超限,已拦截新建义务",
+                            payer.getName(), currency,
+                            limit.toPlainString(), used.toPlainString(),
+                            amount.toPlainString(), projected.toPlainString()));
         }
     }
 }

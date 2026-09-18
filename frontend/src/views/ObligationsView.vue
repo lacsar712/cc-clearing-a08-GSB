@@ -41,7 +41,35 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-button type="primary" :disabled="!auth.isOperator" :loading="saving" @click="create">提交义务</el-button>
+        <div v-if="form.payerMemberId && form.currency" class="credit-tip">
+          <el-alert
+            v-if="!credit.configured"
+            type="info"
+            :closable="false"
+            show-icon
+            :title="`付款方 ${form.currency.toUpperCase()} 未设置额度上限，当前不受约束（可在「会员额度」页设置）`"
+          />
+          <el-alert
+            v-else-if="!credit.exceeded"
+            :type="credit.remaining < credit.amount ? 'warning' : 'success'"
+            :closable="false"
+            show-icon
+            :title="`额度上限 ${fmt(credit.limit)} ｜ 已用 ${fmt(credit.used)} ｜ 本笔 ${fmt(credit.amount)} ｜ 提交后合计 ${fmt(credit.projected)} ｜ 剩余可用 ${fmt(credit.remaining)}`"
+          />
+          <el-alert
+            v-else
+            type="error"
+            :closable="false"
+            show-icon
+            :title="`超过额度上限，已拦截：提交后合计 ${fmt(credit.projected)} > 上限 ${fmt(credit.limit)}（已用 ${fmt(credit.used)} + 本笔 ${fmt(credit.amount)}）。请调低金额或在「会员额度」页调整上限`"
+          />
+        </div>
+        <el-button
+          type="primary"
+          :disabled="!auth.isOperator || credit.exceeded"
+          :loading="saving"
+          @click="create"
+        >提交义务</el-button>
       </el-form>
     </div>
 
@@ -90,6 +118,7 @@ import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
 const members = ref([])
+const creditRows = ref([])
 const rows = ref([])
 const loading = ref(false)
 const saving = ref(false)
@@ -113,6 +142,34 @@ const filters = reactive({
 const activeMembers = computed(() => members.value.filter((m) => m.status === 'ACTIVE'))
 const memberMap = computed(() => Object.fromEntries(members.value.map((m) => [m.memberId, m.name])))
 
+function fmt(v) {
+  return Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 8 })
+}
+
+// 当前付款方 + 币种的额度状态（只约束新建义务）
+const credit = computed(() => {
+  const zero = { configured: false, exceeded: false, limit: 0, used: 0, amount: 0, projected: 0, remaining: 0 }
+  if (!form.payerMemberId || !form.currency) return zero
+  const ccy = String(form.currency).toUpperCase()
+  const row = creditRows.value.find(
+    (r) => r.memberId === form.payerMemberId && r.currency === ccy
+  )
+  if (!row) return zero
+  const limit = Number(row.limitAmount)
+  const used = Number(row.usedAmount || 0)
+  const amount = Number(form.amount || 0)
+  const projected = used + amount
+  return {
+    configured: true,
+    limit,
+    used,
+    amount,
+    projected,
+    remaining: limit - projected,
+    exceeded: projected > limit
+  }
+})
+
 function nameOf(id) {
   return memberMap.value[id] || id
 }
@@ -120,6 +177,11 @@ function nameOf(id) {
 async function loadMembers() {
   const { data } = await api.get('/members')
   members.value = data
+}
+
+async function loadCreditLimits() {
+  const { data } = await api.get('/members/credit-limits')
+  creditRows.value = data
 }
 
 async function load() {
@@ -141,7 +203,7 @@ async function create() {
   try {
     await api.post('/obligations', { ...form })
     ElMessage.success('义务已录入')
-    await load()
+    await Promise.all([load(), loadCreditLimits()])
   } finally {
     saving.value = false
   }
@@ -149,6 +211,12 @@ async function create() {
 
 onMounted(async () => {
   await loadMembers()
-  await load()
+  await Promise.all([load(), loadCreditLimits()])
 })
 </script>
+
+<style scoped>
+.credit-tip {
+  margin: 0 0 14px 110px;
+}
+</style>
